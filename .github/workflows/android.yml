@@ -10,9 +10,6 @@ name: Android Debug Build
 on:
   push:
     branches: [ main, master ]
-    paths:
-      - 'capacitor-project/**'
-      - '.github/workflows/android.yml'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch: {}
@@ -20,10 +17,6 @@ on:
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: capacitor-project
 
     steps:
       - name: Checkout repository
@@ -39,20 +32,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-        # Note: no npm cache is configured here because the project has no
-        # package-lock.json committed. If you add one (`npm install` once,
-        # then commit the generated package-lock.json), you can add:
-        #   cache: 'npm'
-        #   cache-dependency-path: capacitor-project/package-lock.json
 
       - name: Install npm dependencies
         run: npm install
 
       - name: Sync Capacitor Android platform
-        # Regenerates android/capacitor.settings.gradle,
-        # android/app/capacitor.build.gradle, android/app/src/main/assets/public
-        # and android/app/src/main/assets/capacitor.config.json from
-        # node_modules/@capacitor/android + the www/ folder + capacitor.config.ts.
         run: npx cap sync android
 
       - name: Set up Gradle
@@ -61,7 +45,7 @@ jobs:
           gradle-version: '8.7'
 
       - name: Ensure Gradle wrapper jar is present
-        working-directory: capacitor-project/android
+        working-directory: android
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
             gradle wrapper --gradle-version 8.7
@@ -69,17 +53,17 @@ jobs:
           chmod +x ./gradlew
 
       - name: Build debug APK
-        working-directory: capacitor-project/android
+        working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Locate APK
-        working-directory: capacitor-project/android
+        working-directory: android
         run: find app/build/outputs/apk/debug -name "*.apk"
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: milk-ledger-debug-apk
-          path: capacitor-project/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
