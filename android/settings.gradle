@@ -1,0 +1,9 @@
+include ':app'
+
+// Generated / refreshed automatically by `npx cap sync android`.
+// It declares the :capacitor-android library module (from
+// node_modules/@capacitor/android) and any Capacitor/Cordova plugin
+// modules your app uses. It does not exist until you run `npm install`
+// followed by `npx cap sync android` on a machine with npm access —
+// that command creates this file for you, so do not create it by hand.
+apply from: 'capacitor.settings.gradle'

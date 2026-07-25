@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milk Ledger — Collection &amp; Billing</title>
+<meta name="description" content="Offline-first milk collection and billing management system.">
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="assets/icons/favicon-32.png">
+
+<!-- ============ PWA: manifest, theme, install icons ============ -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B4332">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Milk Ledger">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-theme="light">
+
+<!-- ============ APP SHELL ============ -->
+<div class="app" id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand__mark">🥛</span>
+      <div class="brand__text">
+        <strong id="brandName">Milk Ledger</strong>
+        <small>Collection &amp; Billing</small>
+      </div>
+    </div>
+
+    <nav class="nav" id="mainNav">
+      <button class="nav__item is-active" data-view="dashboard"><span class="nav__ic">▣</span>Dashboard</button>
+      <button class="nav__item" data-view="customers"><span class="nav__ic">☺</span>Customers</button>
+      <button class="nav__item" data-view="entry"><span class="nav__ic">✎</span>Daily Entry</button>
+      <button class="nav__item" data-view="rates"><span class="nav__ic">₨</span>Milk Rates</button>
+      <button class="nav__item" data-view="payments"><span class="nav__ic">$</span>Payments</button>
+      <button class="nav__item" data-view="invoices"><span class="nav__ic">▤</span>Invoices</button>
+      <div class="nav__divider">Reports</div>
+      <button class="nav__item" data-view="weekly"><span class="nav__ic">7</span>Weekly Report</button>
+      <button class="nav__item" data-view="monthly"><span class="nav__ic">30</span>Monthly Report</button>
+      <button class="nav__item" data-view="yearly"><span class="nav__ic">365</span>Yearly Report</button>
+      <div class="nav__divider">System</div>
+      <button class="nav__item" data-view="backup"><span class="nav__ic">⇅</span>Backup &amp; Data</button>
+      <button class="nav__item" data-view="settings"><span class="nav__ic">⚙</span>Settings</button>
+    </nav>
+
+    <div class="sidebar__foot">
+      <button class="btn btn--ghost btn--block" id="themeToggle">🌙 Dark Mode</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="menuToggle" aria-label="Toggle menu">☰</button>
+      <div class="topbar__search">
+        <input type="search" id="globalSearch" placeholder="Search customer, phone, village, invoice #…" autocomplete="off">
+        <div class="search-results" id="searchResults" hidden></div>
+      </div>
+      <div class="topbar__actions">
+        <span class="today-pill" id="todayPill"></span>
+        <button class="btn btn--primary" id="quickEntryBtn">+ Daily Entry</button>
+      </div>
+    </header>
+
+    <main class="content" id="content">
+      <!-- Views are rendered here by app.js -->
+    </main>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- ============ LIBRARIES (CDN — app still works fully offline for all core features if cached) ============ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- ============ APP MODULES ============ -->
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/billing.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/customers.js"></script>
+<script src="js/rates.js"></script>
+<script src="js/entries.js"></script>
+<script src="js/payments.js"></script>
+<script src="js/invoices.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+
+<!-- ============ PWA: service worker registration ============ -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+        // If an updated service worker takes control, refresh once so the
+        // user always gets the latest cached version of the app.
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+              // A new version has taken over. No forced reload here to avoid
+              // interrupting data entry — the new version applies on next launch.
+            }
+          });
+        });
+      }).catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
