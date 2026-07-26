@@ -6,12 +6,12 @@ const SettingsView = (() => {
 
   function render(container) {
     container.innerHTML = '';
-    const s = Store.getSettings();
+    var s = Store.getSettings();
     container.appendChild(Utils.el('div', { class: 'view-head' }, Utils.el('div', {}, [
       Utils.el('h1', {}, 'Settings'), Utils.el('div', { class: 'sub' }, 'Business details used on invoices and the dashboard')
     ])));
 
-    const form = Utils.el('form', { class: 'panel form-grid', id: 'settingsForm' }, [
+    var form = Utils.el('form', { class: 'panel form-grid', id: 'settingsForm' }, [
       f('Business Name', 'businessName', s.businessName),
       f('Owner Name', 'ownerName', s.ownerName),
       f('Phone Number', 'phone', s.phone),
@@ -21,9 +21,9 @@ const SettingsView = (() => {
       Utils.el('div', { class: 'form-actions field--full' }, Utils.el('button', { type: 'submit', class: 'btn btn--primary' }, 'Save Settings'))
     ]);
     container.appendChild(form);
-    form.addEventListener('submit', e => {
+    form.addEventListener('submit', function(e) {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target).entries());
+      var data = Object.fromEntries(new FormData(e.target).entries());
       Store.saveSettings(data);
       document.getElementById('brandName').textContent = data.businessName || 'Milk Ledger';
       Utils.toast('Settings saved.', 'success');
@@ -42,30 +42,30 @@ const SettingsView = (() => {
     return Utils.el('div', { class: 'field' }, [Utils.el('label', {}, label), Utils.el('input', { type: 'text', name, value: value || '' })]);
   }
 
-  return { render };
+  return { render: render };
 })();
 
 const BackupView = (() => {
 
   function render(container) {
     container.innerHTML = '';
-    const s = Store.getSettings();
+    var s = Store.getSettings();
     container.appendChild(Utils.el('div', { class: 'view-head' }, Utils.el('div', {}, [
-      Utils.el('h1', {}, 'Backup & Data'), Utils.el('div', { class: 'sub' }, `Last backup: ${s.lastBackup ? Utils.formatDate(s.lastBackup.slice(0, 10)) : 'never'}`)
+      Utils.el('h1', {}, 'Backup & Data'), Utils.el('div', { class: 'sub' }, 'Last backup: ' + (s.lastBackup ? Utils.formatDate(s.lastBackup.slice(0, 10)) : 'never'))
     ])));
 
     container.appendChild(Utils.el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(260px,1fr))' }, [
-      panel('⇩ Export Backup', 'Download all your data (customers, entries, rates, payments, invoices, settings) as a single JSON file. Keep it safe.', [
+      panel('Export Backup', 'Download all your data as a single JSON file.', [
         Utils.el('button', { class: 'btn btn--primary btn--block', onclick: exportBackup }, 'Export Backup (JSON)')
       ]),
-      panel('⇧ Import Backup', 'Restore data from a previously exported JSON backup file. This will overwrite current data.', [
+      panel('Import Backup', 'Restore data from a previously exported JSON backup file. This will overwrite current data.', [
         Utils.el('input', { type: 'file', accept: 'application/json', id: 'importFile', style: 'margin-bottom:10px' }),
         Utils.el('button', { class: 'btn btn--block', onclick: importBackup }, 'Import Backup')
       ]),
-      panel('↺ Undo Last Delete', 'Restore the most recently deleted customer, entry, or payment.', [
-        Utils.el('button', { class: 'btn btn--block', onclick: () => { const r = Store.undoLastDelete(); if (r) { Utils.toast('Restored.', 'success'); App.rerender(); } else Utils.toast('Nothing to undo.', 'info'); } }, 'Undo Last Delete')
+      panel('Undo Last Delete', 'Restore the most recently deleted customer, entry, or payment.', [
+        Utils.el('button', { class: 'btn btn--block', onclick: function() { var r = Store.undoLastDelete(); if (r) { Utils.toast('Restored.', 'success'); App.rerender(); } else Utils.toast('Nothing to undo.', 'info'); } }, 'Undo Last Delete')
       ]),
-      panel('🗑 Clear All Data', 'Permanently delete everything from this device. This cannot be undone — export a backup first!', [
+      panel('Clear All Data', 'Permanently delete everything from this device. This cannot be undone — export a backup first!', [
         Utils.el('button', { class: 'btn btn--danger btn--block', onclick: clearAll }, 'Clear All Data')
       ])
     ]));
@@ -74,9 +74,9 @@ const BackupView = (() => {
       Utils.el('h3', {}, 'Export Reports'),
       Utils.el('p', { style: 'color:var(--muted);font-size:13px' }, 'Export all daily entries or all payments as a spreadsheet-compatible CSV file.'),
       Utils.el('div', { class: 'view-actions' }, [
-        Utils.el('button', { class: 'btn', onclick: exportEntriesCSV }, '⬇ All Entries (CSV)'),
-        Utils.el('button', { class: 'btn', onclick: exportPaymentsCSV }, '⬇ All Payments (CSV)'),
-        Utils.el('button', { class: 'btn', onclick: exportCustomersCSV }, '⬇ All Customers (CSV)')
+        Utils.el('button', { class: 'btn', onclick: exportEntriesCSV }, 'All Entries (CSV)'),
+        Utils.el('button', { class: 'btn', onclick: exportPaymentsCSV }, 'All Payments (CSV)'),
+        Utils.el('button', { class: 'btn', onclick: exportCustomersCSV }, 'All Customers (CSV)')
       ])
     ]));
   }
@@ -90,17 +90,17 @@ const BackupView = (() => {
   }
 
   function exportBackup() {
-    Utils.downloadFile(`milk-ledger-backup-${Utils.todayISO()}.json`, Store.exportBackup(), 'application/json');
+    Utils.downloadFile('milk-ledger-backup-' + Utils.todayISO() + '.json', Store.exportBackup(), 'application/json');
     Store.saveSettings({ lastBackup: new Date().toISOString() });
     Utils.toast('Backup exported.', 'success');
   }
 
   function importBackup() {
-    const input = document.getElementById('importFile');
+    var input = document.getElementById('importFile');
     if (!input.files.length) { Utils.toast('Choose a backup JSON file first.', 'error'); return; }
     if (!Utils.confirmDialog('This will overwrite your current data with the backup file. Continue?')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+    var reader = new FileReader();
+    reader.onload = function() {
       try {
         Store.importBackup(reader.result);
         Utils.toast('Backup imported successfully.', 'success');
@@ -121,21 +121,23 @@ const BackupView = (() => {
   }
 
   function exportEntriesCSV() {
-    const custMap = Object.fromEntries(Store.Customers.all().map(c => [c.id, c.name]));
-    const rows = Store.Entries.all().sort((a, b) => a.date.localeCompare(b.date))
-      .map(e => [e.date, custMap[e.customerId] || '', e.morning, e.evening, e.total, e.rate, e.amount, e.notes]);
+    var custMap = Object.fromEntries(Store.Customers.all().map(function(c) { return [c.id, c.name]; }));
+    var rows = Store.Entries.all().sort(function(a, b) { return a.date.localeCompare(b.date); })
+      .map(function(e) { return [e.date, custMap[e.customerId] || '', e.morning, e.evening, e.total, e.rate, e.amount, e.notes]; });
     Utils.downloadFile('all_entries.csv', Utils.toCSV(rows, ['Date', 'Customer', 'Morning', 'Evening', 'Total', 'Rate', 'Amount', 'Notes']), 'text/csv');
   }
+
   function exportPaymentsCSV() {
-    const custMap = Object.fromEntries(Store.Customers.all().map(c => [c.id, c.name]));
-    const rows = Store.Payments.all().sort((a, b) => a.date.localeCompare(b.date))
-      .map(p => [p.date, custMap[p.customerId] || '', p.amount, p.method, p.notes]);
+    var custMap = Object.fromEntries(Store.Customers.all().map(function(c) { return [c.id, c.name]; }));
+    var rows = Store.Payments.all().sort(function(a, b) { return a.date.localeCompare(b.date); })
+      .map(function(p) { return [p.date, custMap[p.customerId] || '', p.amount, p.method, p.notes]; });
     Utils.downloadFile('all_payments.csv', Utils.toCSV(rows, ['Date', 'Customer', 'Amount', 'Method', 'Notes']), 'text/csv');
   }
+
   function exportCustomersCSV() {
-    const rows = Store.Customers.all().map(c => [c.name, c.fatherName, c.phone, c.area, c.address, c.status, Billing.outstandingAsOf(c.id, Utils.todayISO())]);
+    var rows = Store.Customers.all().map(function(c) { return [c.name, c.fatherName, c.phone, c.area, c.address, c.status, Billing.outstandingAsOf(c.id, Utils.todayISO())]; });
     Utils.downloadFile('all_customers.csv', Utils.toCSV(rows, ['Name', 'Father Name', 'Phone', 'Area', 'Address', 'Status', 'Outstanding Balance']), 'text/csv');
   }
 
-  return { render };
+  return { render: render };
 })();

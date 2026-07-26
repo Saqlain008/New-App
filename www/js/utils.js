@@ -4,12 +4,10 @@
 
 const Utils = (() => {
 
-  /** Generate a reasonably unique id: prefix + timestamp + random chars */
   function uid(prefix = 'id') {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  /** Today as YYYY-MM-DD (local, not UTC) */
   function todayISO() {
     const d = new Date();
     return dateToISO(d);
@@ -22,7 +20,6 @@ const Utils = (() => {
     return `${y}-${m}-${day}`;
   }
 
-  /** Parse 'YYYY-MM-DD' into a local Date at midnight */
   function parseISO(iso) {
     const [y, m, d] = iso.split('-').map(Number);
     return new Date(y, m - 1, d);
@@ -35,12 +32,11 @@ const Utils = (() => {
   }
 
   function formatDate(iso, opts) {
-    if (!iso) return '—';
+    if (!iso) return '\u2014';
     const d = parseISO(iso);
     return d.toLocaleDateString('en-GB', opts || { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  /** Safe locale formatting — falls back to en-US if en-PK unavailable */
   function formatNum(val, opts = {}) {
     const n = Number(val || 0);
     try {
@@ -51,24 +47,22 @@ const Utils = (() => {
     }
   }
 
-  /** Currency formatter — settings-aware (symbol + decimals) */
   function money(n) {
     const settings = Store.getSettings();
     const symbol = settings.currencySymbol || 'Rs.';
     const val = Number(n || 0);
     const formatted = formatNum(val, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-    return `${symbol} ${formatted}`;
+    return symbol + ' ' + formatted;
   }
 
   function qty(n) {
     const val = Number(n || 0);
-    return `${formatNum(val, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L`;
+    return formatNum(val, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' L';
   }
 
-  /** ISO week number + week start/end (Monday–Sunday) for a given date */
   function weekBounds(iso) {
     const d = parseISO(iso);
-    const day = (d.getDay() + 6) % 7; // Mon=0 ... Sun=6
+    const day = (d.getDay() + 6) % 7;
     const start = new Date(d);
     start.setDate(d.getDate() - day);
     const end = new Date(start);
@@ -92,14 +86,16 @@ const Utils = (() => {
 
   function yearBounds(iso) {
     const d = parseISO(iso);
-    return { start: `${d.getFullYear()}-01-01`, end: `${d.getFullYear()}-12-31` };
+    return { start: d.getFullYear() + '-01-01', end: d.getFullYear() + '-12-31' };
   }
 
   function monthName(iso) {
     return parseISO(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   }
 
-  function el(tag, attrs = {}, children = []) {
+  function el(tag, attrs, children) {
+    if (!attrs) attrs = {};
+    if (!children) children = [];
     const node = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
       if (k === 'class') node.className = v;
@@ -107,7 +103,7 @@ const Utils = (() => {
       else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
       else node.setAttribute(k, v);
     }
-    (Array.isArray(children) ? children : [children]).forEach(c => {
+    (Array.isArray(children) ? children : [children]).forEach(function(c) {
       if (c === null || c === undefined) return;
       node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     });
@@ -117,23 +113,28 @@ const Utils = (() => {
   function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     var s = String(str);
-    s = s.replace(/[&]/g, '&' + 'amp;');
-    s = s.replace(/[<]/g, '&' + 'lt;');
-    s = s.replace(/[>]/g, '&' + 'gt;');
-    s = s.replace(/["]/g, '&' + 'quot;');
-    s = s.replace(/[']/g, '&#' + '039;');
+    var a = String.fromCharCode(38);
+    s = s.replace(/[&]/g, a + 'amp;');
+    s = s.replace(/[<]/g, a + 'lt;');
+    s = s.replace(/[>]/g, a + 'gt;');
+    s = s.replace(/["]/g, a + 'quot;');
+    s = s.replace(/[']/g, a + '#039;');
     return s;
   }
 
-  function debounce(fn, wait = 250) {
-    let t;
-    return (...args) => {
+  function debounce(fn, wait) {
+    if (!wait) wait = 250;
+    var t;
+    return function() {
+      var args = arguments;
+      var ctx = this;
       clearTimeout(t);
-      t = setTimeout(() => fn(...args), wait);
+      t = setTimeout(function() { fn.apply(ctx, args); }, wait);
     };
   }
 
-  function downloadFile(filename, content, mime = 'application/json') {
+  function downloadFile(filename, content, mime) {
+    if (!mime) mime = 'application/json';
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -146,24 +147,25 @@ const Utils = (() => {
   }
 
   function toCSV(rows, headers) {
-    const esc = v => {
+    const esc = function(v) {
       const s = String(v === undefined || v === null ? '' : v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     const lines = [headers.map(esc).join(',')];
-    rows.forEach(r => lines.push(r.map(esc).join(',')));
+    rows.forEach(function(r) { lines.push(r.map(esc).join(',')); });
     return lines.join('\n');
   }
 
-  function toast(message, type = 'info') {
+  function toast(message, type) {
+    if (!type) type = 'info';
     const wrap = document.getElementById('toastWrap');
     if (!wrap) return alert(message);
-    const t = el('div', { class: `toast toast--${type}` }, message);
+    const t = el('div', { class: 'toast toast--' + type }, message);
     wrap.appendChild(t);
-    requestAnimationFrame(() => t.classList.add('show'));
-    setTimeout(() => {
+    requestAnimationFrame(function() { t.classList.add('show'); });
+    setTimeout(function() {
       t.classList.remove('show');
-      setTimeout(() => t.remove(), 300);
+      setTimeout(function() { t.remove(); }, 300);
     }, 3200);
   }
 
@@ -171,68 +173,96 @@ const Utils = (() => {
     return window.confirm(message);
   }
 
-  /** Paginate an array */
-  function paginate(arr, page = 1, perPage = 20) {
+  function paginate(arr, page, perPage) {
+    if (!page) page = 1;
+    if (!perPage) perPage = 20;
     const total = arr.length;
     const totalPages = Math.max(1, Math.ceil(total / perPage));
     const p = Math.min(Math.max(1, page), totalPages);
     const start = (p - 1) * perPage;
-    return { items: arr.slice(start, start + perPage), page: p, totalPages, total, perPage };
+    return { items: arr.slice(start, start + perPage), page: p, totalPages: totalPages, total: total, perPage: perPage };
   }
 
-  /** Render pagination controls */
   function paginationControls(pagination, onPage) {
     const wrap = el('div', { class: 'pagination' });
     if (pagination.totalPages <= 1) return wrap;
     wrap.appendChild(el('button', {
-      class: `btn btn--sm${pagination.page <= 1 ? ' btn--disabled' : ''}`,
-      onclick: () => { if (pagination.page > 1) onPage(pagination.page - 1); }
-    }, '‹ Prev'));
-    wrap.appendChild(el('span', { class: 'pagination__info' }, `Page ${pagination.page} of ${pagination.totalPages} (${pagination.total} items)`));
+      class: 'btn btn--sm' + (pagination.page <= 1 ? ' btn--disabled' : ''),
+      onclick: function() { if (pagination.page > 1) onPage(pagination.page - 1); }
+    }, '\u2039 Prev'));
+    wrap.appendChild(el('span', { class: 'pagination__info' },
+      'Page ' + pagination.page + ' of ' + pagination.totalPages + ' (' + pagination.total + ' items)'));
     wrap.appendChild(el('button', {
-      class: `btn btn--sm${pagination.page >= pagination.totalPages ? ' btn--disabled' : ''}`,
-      onclick: () => { if (pagination.page < pagination.totalPages) onPage(pagination.page + 1); }
-    }, 'Next ›'));
+      class: 'btn btn--sm' + (pagination.page >= pagination.totalPages ? ' btn--disabled' : ''),
+      onclick: function() { if (pagination.page < pagination.totalPages) onPage(pagination.page + 1); }
+    }, 'Next \u203a'));
     return wrap;
   }
 
-  /** Sort an array of objects by a key */
-  function sortBy(arr, key, desc = false) {
-    const sorted = [...arr].sort((a, b) => {
-      const va = a[key] ?? '';
-      const vb = b[key] ?? '';
-      if (typeof va === 'number' && typeof vb === 'number') return desc ? vb - va : va - vb;
-      return desc ? String(vb).localeCompare(String(va)) : String(va).localeCompare(String(vb));
-    });
-    return sorted;
-  }
-
-  /** Group entries by date */
-  function groupByDate(entries, desc = true) {
+  function groupByDate(entries, desc) {
+    if (desc === undefined) desc = true;
     const groups = {};
-    entries.forEach(e => {
+    entries.forEach(function(e) {
       if (!groups[e.date]) groups[e.date] = [];
       groups[e.date].push(e);
     });
     const dates = Object.keys(groups).sort();
     if (desc) dates.reverse();
-    return dates.map(d => ({ date: d, entries: groups[d] }));
+    return dates.map(function(d) { return { date: d, entries: groups[d] }; });
   }
 
-  /** Format a date for display as heading (e.g. "26 Jul 2026") */
   function formatDateHeading(iso) {
     return parseISO(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  /** Get day name */
   function dayName(iso) {
     return parseISO(iso).toLocaleDateString('en-GB', { weekday: 'long' });
   }
 
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    return days + 'd ago';
+  }
+
   return {
-    uid, todayISO, dateToISO, parseISO, addDays, formatDate, formatNum, money, qty,
-    weekBounds, weekNumber, monthBounds, yearBounds, monthName,
-    el, escapeHtml, debounce, downloadFile, toCSV, toast, confirmDialog,
-    paginate, paginationControls, sortBy, groupByDate, formatDateHeading, dayName
+    uid: uid,
+    todayISO: todayISO,
+    dateToISO: dateToISO,
+    parseISO: parseISO,
+    addDays: addDays,
+    formatDate: formatDate,
+    formatNum: formatNum,
+    money: money,
+    qty: qty,
+    weekBounds: weekBounds,
+    weekNumber: weekNumber,
+    monthBounds: monthBounds,
+    yearBounds: yearBounds,
+    monthName: monthName,
+    el: el,
+    escapeHtml: escapeHtml,
+    debounce: debounce,
+    downloadFile: downloadFile,
+    toCSV: toCSV,
+    toast: toast,
+    confirmDialog: confirmDialog,
+    paginate: paginate,
+    paginationControls: paginationControls,
+    groupByDate: groupByDate,
+    formatDateHeading: formatDateHeading,
+    dayName: dayName,
+    formatTime: formatTime,
+    timeAgo: timeAgo
   };
 })();

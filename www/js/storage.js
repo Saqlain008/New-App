@@ -11,7 +11,7 @@ const Store = (() => {
     payments: 'mcbs_payments',
     invoices: 'mcbs_invoices',
     settings: 'mcbs_settings',
-    trash: 'mcbs_trash' // for undo-delete
+    trash: 'mcbs_trash'
   };
 
   const DEFAULT_SETTINGS = {
@@ -42,7 +42,7 @@ const Store = (() => {
       return true;
     } catch (e) {
       console.error('Storage write error', key, e);
-      Utils.toast('Storage full or unavailable — could not save.', 'error');
+      Utils.toast('Storage full — could not save.', 'error');
       return false;
     }
   }
@@ -91,7 +91,7 @@ const Store = (() => {
     if (keepTrash) {
       const trash = getAll(KEYS.trash);
       trash.push({ key, item: removed, deletedAt: Date.now() });
-      saveAll(KEYS.trash, trash.slice(-30)); // keep last 30
+      saveAll(KEYS.trash, trash.slice(-30));
     }
     return removed;
   }
@@ -105,7 +105,7 @@ const Store = (() => {
     return last;
   }
 
-  /* ---------- Customers ---------- */
+  /* ---------- Customers (with per-customer rate) ---------- */
   const Customers = {
     all: () => getAll(KEYS.customers),
     get: id => Customers.all().find(c => c.id === id),
@@ -119,6 +119,7 @@ const Store = (() => {
       notes: data.notes || '',
       status: data.status || 'active',
       photo: data.photo || '',
+      rate: Number(data.rate) || 0, // per-customer milk rate
       createdAt: Date.now()
     }),
     update: (id, patch) => update(KEYS.customers, id, patch),
@@ -132,10 +133,20 @@ const Store = (() => {
         (c.area || '').toLowerCase().includes(q) ||
         (c.fatherName || '').toLowerCase().includes(q)
       );
+    },
+    /** Get a customer's milk rate, falling back to global rate if not set */
+    getRate: customerId => {
+      const c = Customers.get(customerId);
+      if (c && c.rate && c.rate > 0) return Number(c.rate);
+      // Fallback to global current rate
+      return Rates.current();
+    },
+    setRate: (customerId, rate) => {
+      return Customers.update(customerId, { rate: Number(rate) });
     }
   };
 
-  /* ---------- Milk Rates ---------- */
+  /* ---------- Milk Rates (global fallback) ---------- */
   const Rates = {
     all: () => getAll(KEYS.rates).sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate)),
     add: data => insert(KEYS.rates, {
@@ -146,7 +157,6 @@ const Store = (() => {
       createdAt: Date.now()
     }),
     remove: id => remove(KEYS.rates, id),
-    /** rate that is active on a given date = latest rate with effectiveDate <= date */
     rateOn: date => {
       const rates = Rates.all().filter(r => r.effectiveDate <= date);
       if (!rates.length) return 0;
@@ -172,7 +182,10 @@ const Store = (() => {
       const morning = Number(data.morning || 0);
       const evening = Number(data.evening || 0);
       const total = data.total !== undefined && data.total !== '' ? Number(data.total) : (morning + evening);
-      const rate = Rates.rateOn(data.date);
+      // Use customer's own rate if available, fallback to global
+      const customerRate = Customers.getRate(data.customerId);
+      const globalRate = Rates.rateOn(data.date);
+      const rate = customerRate > 0 ? customerRate : globalRate;
       return insert(KEYS.entries, {
         id: Utils.uid('entry'),
         customerId: data.customerId,
@@ -192,7 +205,10 @@ const Store = (() => {
       const morning = Number(merged.morning || 0);
       const evening = Number(merged.evening || 0);
       merged.total = patch.total !== undefined && patch.total !== '' ? Number(patch.total) : (morning + evening);
-      merged.rate = Rates.rateOn(merged.date);
+      // Recalculate rate: use customer's own rate
+      const customerRate = Customers.getRate(merged.customerId);
+      const globalRate = Rates.rateOn(merged.date);
+      merged.rate = customerRate > 0 ? customerRate : globalRate;
       merged.amount = +(merged.total * merged.rate).toFixed(2);
       arr[idx] = merged;
       saveAll(KEYS.entries, arr);
@@ -254,7 +270,7 @@ const Store = (() => {
   /* ---------- Backup / Restore ---------- */
   function exportBackup() {
     return JSON.stringify({
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       data: {
         customers: getAll(KEYS.customers),
@@ -269,7 +285,7 @@ const Store = (() => {
 
   function importBackup(jsonStr) {
     const parsed = JSON.parse(jsonStr);
-    const data = parsed.data || parsed; // tolerate raw dumps
+    const data = parsed.data || parsed;
     if (data.customers) saveAll(KEYS.customers, data.customers);
     if (data.rates) saveAll(KEYS.rates, data.rates);
     if (data.entries) saveAll(KEYS.entries, data.entries);
