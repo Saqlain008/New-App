@@ -54,8 +54,12 @@ const Store = (() => {
     if (!read(KEYS.payments)) write(KEYS.payments, []);
     if (!read(KEYS.invoices)) write(KEYS.invoices, []);
     if (!read(KEYS.trash)) write(KEYS.trash, []);
-    if (!read(KEYS.settings)) write(KEYS.settings, DEFAULT_SETTINGS);
-    else write(KEYS.settings, { ...DEFAULT_SETTINGS, ...read(KEYS.settings) });
+    if (!read(KEYS.settings)) {
+      write(KEYS.settings, { ...DEFAULT_SETTINGS });
+    } else {
+      const existing = read(KEYS.settings);
+      write(KEYS.settings, { ...DEFAULT_SETTINGS, ...(existing && typeof existing === 'object' ? existing : {}) });
+    }
   }
 
   /* ---------- generic collection helpers ---------- */

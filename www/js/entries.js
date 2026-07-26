@@ -1,10 +1,12 @@
 /* ==========================================================================
-   entries.js — daily milk entry recording
+   entries.js — daily milk entry recording with date-wise grouping
    ========================================================================== */
 
 const EntriesView = (() => {
 
   let currentFilter = 'today';
+  let sortOrder = 'newest'; // 'newest' or 'oldest'
+  let currentPage = 1;
 
   function render(container) {
     container.innerHTML = '';
@@ -32,17 +34,26 @@ const EntriesView = (() => {
     const filters = Utils.el('div', { class: 'filters' }, [
       Utils.el('div', { class: 'chip-group', id: 'entryChips' },
         [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This Week'], ['lastweek', 'Last Week'], ['month', 'This Month'], ['all', 'All Time']]
-          .map(([k, l]) => Utils.el('button', { class: `chip${currentFilter === k ? ' is-active' : ''}`, onclick: () => { currentFilter = k; render(container); } }, l))
+          .map(([k, l]) => Utils.el('button', { class: `chip${currentFilter === k ? ' is-active' : ''}`, onclick: () => { currentFilter = k; currentPage = 1; render(container); } }, l))
       ),
-      Utils.el('input', { type: 'text', placeholder: 'Filter by customer name…', id: 'entrySearch' })
+      Utils.el('input', { type: 'text', placeholder: 'Filter by customer name…', id: 'entrySearch' }),
+      Utils.el('select', { id: 'entrySort', style: 'margin-left:auto' }, [
+        Utils.el('option', { value: 'newest', selected: sortOrder === 'newest' }, 'Newest First'),
+        Utils.el('option', { value: 'oldest', selected: sortOrder === 'oldest' }, 'Oldest First')
+      ])
     ]);
     container.appendChild(filters);
 
-    const tableWrap = Utils.el('div', { class: 'table-wrap' });
-    container.appendChild(tableWrap);
-    drawTable(tableWrap);
+    const contentArea = Utils.el('div', { id: 'entryContent' });
+    container.appendChild(contentArea);
+    drawContent(contentArea);
 
-    document.getElementById('entrySearch').addEventListener('input', Utils.debounce(() => drawTable(tableWrap), 150));
+    document.getElementById('entrySearch').addEventListener('input', Utils.debounce(() => { currentPage = 1; drawContent(contentArea); }, 150));
+    document.getElementById('entrySort').addEventListener('change', () => {
+      sortOrder = document.getElementById('entrySort').value;
+      currentPage = 1;
+      drawContent(contentArea);
+    });
   }
 
   function rangeForFilter() {
@@ -55,51 +66,75 @@ const EntriesView = (() => {
     return { start: '0000-01-01', end: '9999-12-31' };
   }
 
-  function drawTable(tableWrap) {
+  function drawContent(contentArea) {
     const { start, end } = rangeForFilter();
     const q = (document.getElementById('entrySearch')?.value || '').toLowerCase();
     const custMap = Object.fromEntries(Store.Customers.all().map(c => [c.id, c]));
-    let rows = Store.Entries.inRange(start, end).sort((a, b) => b.date.localeCompare(a.date) || (custMap[b.customerId]?.name || '').localeCompare(custMap[a.customerId]?.name || ''));
+    let rows = Store.Entries.inRange(start, end);
     if (q) rows = rows.filter(e => (custMap[e.customerId]?.name || '').toLowerCase().includes(q));
 
-    tableWrap.innerHTML = '';
+    contentArea.innerHTML = '';
     if (!rows.length) {
-      tableWrap.appendChild(Utils.el('div', { class: 'table-empty' }, 'No entries in this period.'));
+      contentArea.appendChild(Utils.el('div', { class: 'table-empty' }, 'No entries in this period.'));
       return;
     }
-    const totals = rows.reduce((a, e) => { a.qty += e.total; a.amount += e.amount; return a; }, { qty: 0, amount: 0 });
 
-    const table = Utils.el('table', {}, Utils.el('thead', {}, Utils.el('tr', {}, [
-      'Date', 'Customer', 'Morning', 'Evening', 'Total', 'Rate', 'Amount', 'Notes', ''
-    ].map((h, i) => Utils.el('th', { class: (i >= 2 && i <= 6) ? 'num' : '' }, h)))));
-    const tbody = Utils.el('tbody');
-    rows.forEach(e => {
-      const cust = custMap[e.customerId];
-      tbody.appendChild(Utils.el('tr', {}, [
-        Utils.el('td', {}, Utils.formatDate(e.date)),
-        Utils.el('td', { style: 'font-weight:600' }, cust ? cust.name : '(deleted customer)'),
-        Utils.el('td', { class: 'num' }, e.morning || 0),
-        Utils.el('td', { class: 'num' }, e.evening || 0),
-        Utils.el('td', { class: 'num' }, Utils.qty(e.total)),
-        Utils.el('td', { class: 'num' }, Utils.money(e.rate)),
-        Utils.el('td', { class: 'num' }, Utils.money(e.amount)),
-        Utils.el('td', {}, e.notes || '—'),
-        Utils.el('td', {}, Utils.el('div', { class: 'row-actions' }, [
-          Utils.el('button', { class: 'btn btn--sm', onclick: () => openForm(e) }, 'Edit'),
-          Utils.el('button', { class: 'btn btn--sm btn--danger', onclick: () => { if (Utils.confirmDialog('Delete this entry?')) { Store.Entries.remove(e.id); App.rerender(); } } }, 'Del')
-        ]))
-      ]));
+    // Group by date
+    const desc = sortOrder === 'newest';
+    const dateGroups = Utils.groupByDate(rows, desc);
+
+    // Paginate date groups (not individual entries)
+    const paginated = Utils.paginate(dateGroups, currentPage, 10);
+    currentPage = paginated.page;
+
+    // Render each date group
+    paginated.items.forEach(group => {
+      const totalQty = group.entries.reduce((s, e) => s + (e.total || 0), 0);
+      const totalAmt = group.entries.reduce((s, e) => s + (e.amount || 0), 0);
+
+      const groupEl = Utils.el('div', { class: 'date-group' }, [
+        Utils.el('div', { class: 'date-group__head' }, [
+          Utils.el('div', {}, [
+            Utils.el('h3', {}, Utils.formatDateHeading(group.date)),
+            Utils.el('span', { class: 'day-name' }, Utils.dayName(group.date))
+          ]),
+          Utils.el('div', { style: 'text-align:right;font-size:12px;color:var(--muted)' },
+            `${group.entries.length} customer${group.entries.length > 1 ? 's' : ''}`
+          )
+        ]),
+        Utils.el('div', { class: 'date-group__body' }, group.entries.map(e => {
+          const cust = custMap[e.customerId];
+          return Utils.el('div', { class: 'date-group__row' }, [
+            Utils.el('span', { class: 'cust-name' }, cust ? cust.name : '(deleted)'),
+            Utils.el('div', { class: 'entry-detail' }, [
+              Utils.el('span', {}, ['Morning: ', Utils.el('span', { class: 'val' }, `${e.morning || 0} L`)]),
+              Utils.el('span', {}, ['Evening: ', Utils.el('span', { class: 'val' }, `${e.evening || 0} L`)]),
+              Utils.el('span', {}, ['Total: ', Utils.el('span', { class: 'val' }, Utils.qty(e.total))]),
+              e.notes ? Utils.el('span', { style: 'color:var(--muted);font-size:11px' }, `📝 ${e.notes}`) : null
+            ]),
+            Utils.el('span', { class: 'entry-amount' }, Utils.money(e.amount)),
+            Utils.el('div', { class: 'row-actions' }, [
+              Utils.el('button', { class: 'btn btn--sm', onclick: () => openForm(e) }, 'Edit'),
+              Utils.el('button', { class: 'btn btn--sm btn--danger', onclick: () => {
+                if (Utils.confirmDialog('Delete this entry?')) { Store.Entries.remove(e.id); App.rerender(); }
+              } }, 'Del')
+            ])
+          ]);
+        })),
+        Utils.el('div', { class: 'date-group__total' }, [
+          Utils.el('span', {}, ['Total Milk: ', Utils.el('span', {}, Utils.qty(totalQty))]),
+          Utils.el('span', {}, ['Total Amount: ', Utils.el('span', {}, Utils.money(totalAmt))])
+        ])
+      ]);
+      contentArea.appendChild(groupEl);
     });
-    const tfoot = Utils.el('tfoot', {}, Utils.el('tr', { style: 'font-weight:800;background:var(--forest-dim)' }, [
-      Utils.el('td', { colspan: '4' }, 'Total'),
-      Utils.el('td', { class: 'num' }, Utils.qty(totals.qty)),
-      Utils.el('td', {}),
-      Utils.el('td', { class: 'num' }, Utils.money(totals.amount)),
-      Utils.el('td', { colspan: '2' })
-    ]));
-    table.appendChild(tbody);
-    table.appendChild(tfoot);
-    tableWrap.appendChild(table);
+
+    // Pagination
+    contentArea.appendChild(Utils.paginationControls(paginated, (p) => {
+      currentPage = p;
+      drawContent(contentArea);
+      contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
   }
 
   function openForm(existing) {
@@ -115,7 +150,7 @@ const EntriesView = (() => {
       ]),
       Utils.el('div', { class: 'field' }, [
         Utils.el('label', {}, 'Date *'),
-        Utils.el('input', { type: 'date', name: 'date', value: existing?.date || Utils.todayISO(), max: Utils.todayISO(), required: 'required' })
+        Utils.el('input', { type: 'date', name: 'date', value: existing?.date || Utils.todayISO(), ...(existing ? {} : { max: Utils.todayISO() }), required: 'required' })
       ]),
       Utils.el('div', { class: 'field' }, [
         Utils.el('label', {}, `Rate on this date`),

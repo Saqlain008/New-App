@@ -29,6 +29,12 @@ const App = (() => {
     currentParams = params;
     document.querySelectorAll('.nav__item').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === view));
     closeSidebarMobile();
+    // Close search results when navigating
+    const searchResults = document.getElementById('searchResults');
+    if (searchResults) searchResults.hidden = true;
+    // Clear search input
+    const searchInput = document.getElementById('globalSearch');
+    if (searchInput) searchInput.value = '';
     VIEWS[view](content(), params);
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   }
@@ -69,16 +75,25 @@ const App = (() => {
       if (!q) { resultsBox.hidden = true; return; }
       const results = [];
 
+      // Search customers by name, phone, village, father name
       Store.Customers.search(q).slice(0, 6).forEach(c => results.push({
         label: c.name, meta: `Customer • ${c.phone || 'no phone'} • ${c.area || ''}`,
         action: () => navigate('profile', { id: c.id })
       }));
+      // Search invoices by number
       Store.Invoices.all().filter(i => i.invoiceNumber.toLowerCase().includes(q)).slice(0, 4).forEach(inv => {
         const cust = Store.Customers.get(inv.customerId);
         results.push({ label: inv.invoiceNumber, meta: `Invoice • ${cust ? cust.name : ''}`, action: () => { navigate('invoices'); setTimeout(() => InvoicesView.viewInvoice(inv.id), 0); } });
       });
+      // Search by date
       if (/^\d{4}-\d{2}-\d{2}$/.test(q)) {
         results.push({ label: `Entries on ${q}`, meta: 'Date search', action: () => navigate('entry') });
+      }
+      // Search by milk quantity or amount
+      const qNum = parseFloat(q);
+      if (!isNaN(qNum)) {
+        results.push({ label: `Entries with ${qNum} L`, meta: 'Quantity search', action: () => navigate('entry') });
+        results.push({ label: `Payments of ${Utils.money(qNum)}`, meta: 'Amount search', action: () => navigate('payments') });
       }
 
       if (!results.length) {

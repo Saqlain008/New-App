@@ -4,6 +4,8 @@
 
 const InvoicesView = (() => {
 
+  let currentPage = 1;
+
   function render(container) {
     container.innerHTML = '';
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
@@ -22,11 +24,13 @@ const InvoicesView = (() => {
     if (!invoices.length) {
       wrap.appendChild(Utils.el('div', { class: 'table-empty' }, 'No invoices generated yet. Click "Generate Invoice" to create your first bill.'));
     } else {
+      const paginated = Utils.paginate(invoices, currentPage, 15);
+      currentPage = paginated.page;
       const table = Utils.el('table', {}, Utils.el('thead', {}, Utils.el('tr', {}, [
         'Invoice #', 'Customer', 'Period', 'Total Payable', 'Status', ''
       ].map((h, i) => Utils.el('th', { class: i === 3 ? 'num' : '' }, h)))));
       const tbody = Utils.el('tbody');
-      invoices.forEach(inv => {
+      paginated.items.forEach(inv => {
         tbody.appendChild(Utils.el('tr', {}, [
           Utils.el('td', { class: 'mono' }, inv.invoiceNumber),
           Utils.el('td', { style: 'font-weight:600' }, custMap[inv.customerId]?.name || '—'),
@@ -41,6 +45,7 @@ const InvoicesView = (() => {
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
+      wrap.appendChild(Utils.paginationControls(paginated, (p) => { currentPage = p; App.rerender(); }));
     }
     container.appendChild(wrap);
   }
@@ -174,7 +179,7 @@ const InvoicesView = (() => {
     const totalsX = 360;
     doc.text('Gross Amount:', totalsX, y); doc.text(Utils.money(inv.grossAmount), 480, y); y += 18;
     doc.text('Previous Balance:', totalsX, y); doc.text(Utils.money(inv.previousBalance), 480, y); y += 18;
-    doc.text('Payments Received:', totalsX, y); doc.text(`- ${Utils.money(inv.paymentsReceived)}`, 480, y); y += 18;
+    doc.text('Payments Received:', totalsX, y); doc.text(Utils.money(inv.paymentsReceived), 480, y, { align: 'right' }); y += 18;
     doc.setFontSize(13);
     doc.text('Grand Total Payable:', totalsX, y); doc.text(Utils.money(inv.remaining), 480, y); y += 24;
     doc.setFontSize(11);

@@ -8,26 +8,38 @@ const Reports = (() => {
     const wrap = Utils.el('div', { class: 'table-wrap' });
     if (!rows.length) { wrap.appendChild(Utils.el('div', { class: 'table-empty' }, 'No data for this period.')); return wrap; }
     const periodLabel = kind === 'week' ? 'Week' : kind === 'month' ? 'Month' : 'Year';
+    const paginated = Utils.paginate(rows, 1, 20);
     const table = Utils.el('table', {}, Utils.el('thead', {}, Utils.el('tr', {}, [
       periodLabel, 'Milk Qty', 'Bill Amount', 'Previous Balance', 'Payments', 'Total Payable', 'Balance', 'Status'
     ].map((h, i) => Utils.el('th', { class: i > 0 && i < 7 ? 'num' : '' }, h)))));
     const tbody = Utils.el('tbody');
-    rows.forEach(r => {
-      const label = kind === 'week' ? `Week ${r.weekNumber} (${Utils.formatDate(r.start)}–${Utils.formatDate(r.end)})`
-        : kind === 'month' ? r.label : r.year;
-      tbody.appendChild(Utils.el('tr', {}, [
-        Utils.el('td', {}, label),
-        Utils.el('td', { class: 'num' }, Utils.qty(r.qty)),
-        Utils.el('td', { class: 'num' }, Utils.money(r.currentBill)),
-        Utils.el('td', { class: 'num' }, Utils.money(r.previousBalance)),
-        Utils.el('td', { class: 'num' }, Utils.money(r.paymentsReceived)),
-        Utils.el('td', { class: 'num' }, Utils.money(r.totalPayable)),
-        Utils.el('td', { class: 'num', style: r.remaining > 0 ? 'color:var(--danger)' : 'color:var(--success)' }, Utils.money(r.remaining)),
-        Utils.el('td', {}, Utils.el('span', { class: `badge badge--${r.status.toLowerCase()}` }, r.status))
-      ]));
-    });
+
+    function renderRows(items) {
+      tbody.innerHTML = '';
+      items.forEach(r => {
+        const label = kind === 'week' ? `Week ${r.weekNumber} (${Utils.formatDate(r.start)}–${Utils.formatDate(r.end)})`
+          : kind === 'month' ? r.label : r.year;
+        tbody.appendChild(Utils.el('tr', {}, [
+          Utils.el('td', {}, label),
+          Utils.el('td', { class: 'num' }, Utils.qty(r.qty)),
+          Utils.el('td', { class: 'num' }, Utils.money(r.currentBill)),
+          Utils.el('td', { class: 'num' }, Utils.money(r.previousBalance)),
+          Utils.el('td', { class: 'num' }, Utils.money(r.paymentsReceived)),
+          Utils.el('td', { class: 'num' }, Utils.money(r.totalPayable)),
+          Utils.el('td', { class: 'num', style: r.remaining > 0 ? 'color:var(--danger)' : 'color:var(--success)' }, Utils.money(r.remaining)),
+          Utils.el('td', {}, Utils.el('span', { class: `badge badge--${r.status.toLowerCase()}` }, r.status))
+        ]));
+      });
+    }
+
+    renderRows(paginated.items);
     table.appendChild(tbody);
     wrap.appendChild(table);
+    wrap.appendChild(Utils.paginationControls(paginated, (p) => {
+      const np = Utils.paginate(rows, p, 20);
+      renderRows(np.items);
+      wrap.replaceChild(Utils.paginationControls(np, arguments.callee), wrap.querySelector('.pagination'));
+    }));
     return wrap;
   }
 
@@ -55,6 +67,9 @@ const Reports = (() => {
       Utils.el('div', { class: 'view-actions', id: 'reportActions' })
     ]));
 
+    const summary = Utils.el('div', { id: 'reportSummary', class: 'grid grid-cards' });
+    container.appendChild(summary);
+
     const filters = Utils.el('div', { class: 'filters' });
     container.appendChild(filters);
     const body = Utils.el('div', { id: 'reportBody' });
@@ -72,6 +87,46 @@ const Reports = (() => {
       if (!Store.Customers.all().length) { body.appendChild(Utils.el('div', { class: 'table-empty' }, 'No customers yet.')); return; }
       const from = earliestDate();
       const to = Utils.todayISO();
+
+      // Summary stats
+      const totalEntries = Store.Entries.inRange(from, to);
+      const totalPayments = Store.Payments.inRange(from, to);
+      const entriesSum = Billing.sumEntries(totalEntries);
+      const paymentsSum = Billing.sumPayments(totalPayments);
+      const avgRate = totalEntries.length ? totalEntries.reduce((s, e) => s + e.rate, 0) / totalEntries.length : 0;
+
+      let topCustomer = null;
+      if (!selectedCustomer) {
+        const custBalances = Store.Customers.all().map(c => ({
+          name: c.name,
+          bal: Billing.outstandingAsOf(c.id, to)
+        })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal);
+        topCustomer = custBalances.length ? custBalances[0] : null;
+      }
+
+      summary.innerHTML = '';
+      summary.appendChild(Utils.el('div', { class: 'card stat-card accent-forest' }, [
+        Utils.el('span', { class: 'stat-label' }, 'Total Milk'),
+        Utils.el('div', { class: 'stat-value' }, Utils.qty(entriesSum.qty))
+      ]));
+      summary.appendChild(Utils.el('div', { class: 'card stat-card accent-gold' }, [
+        Utils.el('span', { class: 'stat-label' }, 'Total Revenue'),
+        Utils.el('div', { class: 'stat-value' }, Utils.money(entriesSum.amount))
+      ]));
+      summary.appendChild(Utils.el('div', { class: 'card stat-card accent-gold' }, [
+        Utils.el('span', { class: 'stat-label' }, 'Total Payments'),
+        Utils.el('div', { class: 'stat-value' }, Utils.money(paymentsSum))
+      ]));
+      summary.appendChild(Utils.el('div', { class: 'card stat-card accent-forest' }, [
+        Utils.el('span', { class: 'stat-label' }, 'Avg Rate'),
+        Utils.el('div', { class: 'stat-value' }, Utils.money(avgRate))
+      ]));
+      if (topCustomer) {
+        summary.appendChild(Utils.el('div', { class: 'card stat-card accent-danger' }, [
+          Utils.el('span', { class: 'stat-label' }, 'Top Defaulter'),
+          Utils.el('div', { class: 'stat-value' }, `${topCustomer.name}: ${Utils.money(topCustomer.bal)}`)
+        ]));
+      }
 
       if (selectedCustomer) {
         const rows = (kind === 'week' ? Billing.weeklyReport(selectedCustomer, from, to)
@@ -106,24 +161,36 @@ const Reports = (() => {
 
   function businessWideTable(kind, from, to) {
     const periods = periodsBetween(kind, from, to);
+    const paginated = Utils.paginate(periods, 1, 20);
     const wrap = Utils.el('div', { class: 'table-wrap' });
     if (!periods.length) { wrap.appendChild(Utils.el('div', { class: 'table-empty' }, 'No data yet.')); return wrap; }
     const table = Utils.el('table', {}, Utils.el('thead', {}, Utils.el('tr', {}, [
       kind === 'week' ? 'Week' : kind === 'month' ? 'Month' : 'Year', 'Total Milk', 'Total Billed', 'Payments Received', 'Entries'
     ].map((h, i) => Utils.el('th', { class: i > 0 ? 'num' : '' }, h)))));
     const tbody = Utils.el('tbody');
-    periods.forEach(p => {
-      const agg = Billing.aggregateRange(p.start, p.end);
-      tbody.appendChild(Utils.el('tr', {}, [
-        Utils.el('td', {}, p.label),
-        Utils.el('td', { class: 'num' }, Utils.qty(agg.qty)),
-        Utils.el('td', { class: 'num' }, Utils.money(agg.amount)),
-        Utils.el('td', { class: 'num' }, Utils.money(agg.paid)),
-        Utils.el('td', { class: 'num' }, agg.entriesCount)
-      ]));
-    });
+
+    function renderRows(items) {
+      tbody.innerHTML = '';
+      items.forEach(p => {
+        const agg = Billing.aggregateRange(p.start, p.end);
+        tbody.appendChild(Utils.el('tr', {}, [
+          Utils.el('td', {}, p.label),
+          Utils.el('td', { class: 'num' }, Utils.qty(agg.qty)),
+          Utils.el('td', { class: 'num' }, Utils.money(agg.amount)),
+          Utils.el('td', { class: 'num' }, Utils.money(agg.paid)),
+          Utils.el('td', { class: 'num' }, agg.entriesCount)
+        ]));
+      });
+    }
+
+    renderRows(paginated.items);
     table.appendChild(tbody);
     wrap.appendChild(table);
+    wrap.appendChild(Utils.paginationControls(paginated, (p) => {
+      const np = Utils.paginate(periods, p, 20);
+      renderRows(np.items);
+      wrap.replaceChild(Utils.paginationControls(np, arguments.callee), wrap.querySelector('.pagination'));
+    }));
     return wrap;
   }
 

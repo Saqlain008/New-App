@@ -4,6 +4,8 @@
 
 const PaymentsView = (() => {
 
+  let currentPage = 1;
+
   function render(container) {
     container.innerHTML = '';
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
@@ -38,6 +40,9 @@ const PaymentsView = (() => {
       if (method !== 'all') rows = rows.filter(p => p.method === method);
       if (q) rows = rows.filter(p => (custMap[p.customerId]?.name || '').toLowerCase().includes(q));
 
+      const paginated = Utils.paginate(rows, currentPage, 20);
+      currentPage = paginated.page;
+
       tableWrap.innerHTML = '';
       if (!rows.length) { tableWrap.appendChild(Utils.el('div', { class: 'table-empty' }, 'No payments recorded yet.')); return; }
       const total = rows.reduce((s, p) => s + p.amount, 0);
@@ -45,7 +50,7 @@ const PaymentsView = (() => {
         'Date', 'Customer', 'Amount', 'Method', 'Notes', ''
       ].map((h, i) => Utils.el('th', { class: i === 2 ? 'num' : '' }, h)))));
       const tbody = Utils.el('tbody');
-      rows.forEach(p => {
+      paginated.items.forEach(p => {
         const cust = custMap[p.customerId];
         tbody.appendChild(Utils.el('tr', {}, [
           Utils.el('td', {}, Utils.formatDate(p.date)),
@@ -66,10 +71,11 @@ const PaymentsView = (() => {
       table.appendChild(tbody);
       table.appendChild(tfoot);
       tableWrap.appendChild(table);
+      tableWrap.appendChild(Utils.paginationControls(paginated, (p) => { currentPage = p; draw(); }));
     }
 
-    document.getElementById('payMethodFilter').addEventListener('change', draw);
-    document.getElementById('paySearch').addEventListener('input', Utils.debounce(draw, 150));
+    document.getElementById('payMethodFilter').addEventListener('change', () => { currentPage = 1; draw(); });
+    document.getElementById('paySearch').addEventListener('input', Utils.debounce(() => { currentPage = 1; draw(); }, 150));
     draw();
   }
 
@@ -84,7 +90,7 @@ const PaymentsView = (() => {
       ]),
       Utils.el('div', { class: 'field' }, [
         Utils.el('label', {}, 'Payment Date *'),
-        Utils.el('input', { type: 'date', name: 'date', value: Utils.todayISO(), max: Utils.todayISO(), required: 'required' })
+        Utils.el('input', { type: 'date', name: 'date', value: Utils.todayISO(), required: 'required' })
       ]),
       Utils.el('div', { class: 'field' }, [
         Utils.el('label', {}, 'Amount Paid *'),

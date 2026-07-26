@@ -14,8 +14,23 @@ const DashboardView = (() => {
     const weekAgg = Billing.aggregateRange(week.start, week.end);
     const monthAgg = Billing.aggregateRange(month.start, month.end);
     const customers = Store.Customers.all();
+    const activeCustomers = customers.filter(c => c.status === 'active');
+    const inactiveCustomers = customers.filter(c => c.status === 'inactive');
     const outstandingTotal = Billing.totalOutstandingAll(today);
     const pendingCustomers = customers.filter(c => Billing.outstandingAsOf(c.id, today) > 0);
+
+    // Calculate average milk per active customer today
+    const avgMilk = activeCustomers.length ? (todayAgg.qty / activeCustomers.length) : 0;
+
+    // Latest payment
+    const allPayments = Store.Payments.all().sort((a, b) => b.createdAt - a.createdAt);
+    const latestPayment = allPayments.length ? allPayments[0] : null;
+    const latestPaymentCust = latestPayment ? Store.Customers.get(latestPayment.customerId) : null;
+
+    // Latest entry
+    const allEntries = Store.Entries.all().sort((a, b) => b.createdAt - a.createdAt);
+    const latestEntry = allEntries.length ? allEntries[0] : null;
+    const latestEntryCust = latestEntry ? Store.Customers.get(latestEntry.customerId) : null;
 
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
@@ -28,16 +43,43 @@ const DashboardView = (() => {
       ])
     ]));
 
+    // Stats cards
     container.appendChild(Utils.el('div', { class: 'grid grid-cards' }, [
       stat('Total Customers', customers.length, '☺', 'forest'),
+      stat('Active Customers', activeCustomers.length, '✅', 'forest'),
+      stat('Inactive Customers', inactiveCustomers.length, '⏸', 'muted'),
       stat("Today's Milk", Utils.qty(todayAgg.qty), '🥛', 'forest'),
-      stat("Today's Income", Utils.money(todayAgg.amount), '📈', 'gold'),
-      stat('Weekly Income', Utils.money(weekAgg.amount), '📅', 'gold'),
-      stat('Monthly Income', Utils.money(monthAgg.amount), '🗓', 'gold'),
+      stat("Today's Collection", Utils.money(todayAgg.amount), '📈', 'gold'),
+      stat('Weekly Collection', Utils.money(weekAgg.amount), '📅', 'gold'),
+      stat('Monthly Collection', Utils.money(monthAgg.amount), '🗓', 'gold'),
+      stat('Avg Milk/Customer', Utils.qty(avgMilk), '📊', 'forest'),
       stat('Pending Payments', pendingCustomers.length, '⏳', 'danger'),
       stat('Outstanding Balance', Utils.money(outstandingTotal), '⚠', 'danger')
     ]));
 
+    // Latest activity cards
+    const activityRow = Utils.el('div', { class: 'two-col' });
+    activityRow.appendChild(Utils.el('div', { class: 'panel' }, [
+      Utils.el('h3', {}, 'Latest Payment'),
+      latestPayment && latestPaymentCust
+        ? Utils.el('div', { style: 'font-size:13px' }, [
+            Utils.el('div', { style: 'font-weight:700' }, `${Utils.money(latestPayment.amount)} from ${latestPaymentCust.name}`),
+            Utils.el('div', { style: 'color:var(--muted);font-size:12px' }, `${Utils.formatDate(latestPayment.date)} • ${latestPayment.method}`)
+          ])
+        : Utils.el('p', { style: 'color:var(--muted)' }, 'No payments recorded yet.')
+    ]));
+    activityRow.appendChild(Utils.el('div', { class: 'panel' }, [
+      Utils.el('h3', {}, 'Latest Milk Entry'),
+      latestEntry && latestEntryCust
+        ? Utils.el('div', { style: 'font-size:13px' }, [
+            Utils.el('div', { style: 'font-weight:700' }, `${Utils.qty(latestEntry.total)} from ${latestEntryCust.name}`),
+            Utils.el('div', { style: 'color:var(--muted);font-size:12px' }, `${Utils.formatDate(latestEntry.date)} • Amount: ${Utils.money(latestEntry.amount)}`)
+          ])
+        : Utils.el('p', { style: 'color:var(--muted)' }, 'No entries recorded yet.')
+    ]));
+    container.appendChild(activityRow);
+
+    // Charts
     const two = Utils.el('div', { class: 'two-col' });
     two.appendChild(Utils.el('div', { class: 'panel' }, [
       Utils.el('h3', {}, 'Milk Collection — Last 14 Days'),
@@ -78,7 +120,10 @@ const DashboardView = (() => {
     }
     container.appendChild(panel);
 
-    setTimeout(() => drawCharts(today), 0);
+    // Only draw charts if Chart.js library loaded successfully
+    if (typeof Chart !== 'undefined') {
+      setTimeout(() => drawCharts(today), 0);
+    }
   }
 
   function stat(label, value, icon, accent) {
