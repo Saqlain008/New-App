@@ -8,7 +8,7 @@ const SettingsView = (() => {
     container.innerHTML = '';
     var s = Store.getSettings();
     container.appendChild(Utils.el('div', { class: 'view-head' }, Utils.el('div', {}, [
-      Utils.el('h1', {}, 'Settings'), Utils.el('div', { class: 'sub' }, 'Business details used on invoices and the dashboard')
+      Utils.el('h1', {}, '⚙️ Settings'), Utils.el('div', { class: 'sub' }, 'Business details used on invoices and the dashboard')
     ])));
 
     var form = Utils.el('form', { class: 'panel form-grid', id: 'settingsForm' }, [
@@ -51,7 +51,7 @@ const BackupView = (() => {
     container.innerHTML = '';
     var s = Store.getSettings();
     container.appendChild(Utils.el('div', { class: 'view-head' }, Utils.el('div', {}, [
-      Utils.el('h1', {}, 'Backup & Data'), Utils.el('div', { class: 'sub' }, 'Last backup: ' + (s.lastBackup ? Utils.formatDate(s.lastBackup.slice(0, 10)) : 'never'))
+      Utils.el('h1', {}, '💾 Backup & Data'), Utils.el('div', { class: 'sub' }, 'Last backup: ' + (s.lastBackup ? Utils.formatDate(s.lastBackup.slice(0, 10)) : 'never'))
     ])));
 
     container.appendChild(Utils.el('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(260px,1fr))' }, [

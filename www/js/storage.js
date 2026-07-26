@@ -62,7 +62,6 @@ const Store = (() => {
     }
   }
 
-  /* ---------- generic collection helpers ---------- */
   function getAll(key) { return read(key) || []; }
   function saveAll(key, arr) { return write(key, arr); }
 
@@ -105,7 +104,6 @@ const Store = (() => {
     return last;
   }
 
-  /* ---------- Customers (with per-customer rate) ---------- */
   const Customers = {
     all: () => getAll(KEYS.customers),
     get: id => Customers.all().find(c => c.id === id),
@@ -119,7 +117,7 @@ const Store = (() => {
       notes: data.notes || '',
       status: data.status || 'active',
       photo: data.photo || '',
-      rate: Number(data.rate) || 0, // per-customer milk rate
+      rate: Number(data.rate) || 0,
       createdAt: Date.now()
     }),
     update: (id, patch) => update(KEYS.customers, id, patch),
@@ -134,11 +132,9 @@ const Store = (() => {
         (c.fatherName || '').toLowerCase().includes(q)
       );
     },
-    /** Get a customer's milk rate, falling back to global rate if not set */
     getRate: customerId => {
       const c = Customers.get(customerId);
       if (c && c.rate && c.rate > 0) return Number(c.rate);
-      // Fallback to global current rate
       return Rates.current();
     },
     setRate: (customerId, rate) => {
@@ -146,7 +142,6 @@ const Store = (() => {
     }
   };
 
-  /* ---------- Milk Rates (global fallback) ---------- */
   const Rates = {
     all: () => getAll(KEYS.rates).sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate)),
     add: data => insert(KEYS.rates, {
@@ -168,7 +163,6 @@ const Store = (() => {
     }
   };
 
-  /* ---------- Daily Milk Entries ---------- */
   const Entries = {
     all: () => getAll(KEYS.entries),
     forCustomer: id => Entries.all().filter(e => e.customerId === id),
@@ -182,7 +176,6 @@ const Store = (() => {
       const morning = Number(data.morning || 0);
       const evening = Number(data.evening || 0);
       const total = data.total !== undefined && data.total !== '' ? Number(data.total) : (morning + evening);
-      // Use customer's own rate if available, fallback to global
       const customerRate = Customers.getRate(data.customerId);
       const globalRate = Rates.rateOn(data.date);
       const rate = customerRate > 0 ? customerRate : globalRate;
@@ -205,7 +198,6 @@ const Store = (() => {
       const morning = Number(merged.morning || 0);
       const evening = Number(merged.evening || 0);
       merged.total = patch.total !== undefined && patch.total !== '' ? Number(patch.total) : (morning + evening);
-      // Recalculate rate: use customer's own rate
       const customerRate = Customers.getRate(merged.customerId);
       const globalRate = Rates.rateOn(merged.date);
       merged.rate = customerRate > 0 ? customerRate : globalRate;
@@ -217,7 +209,6 @@ const Store = (() => {
     remove: id => remove(KEYS.entries, id)
   };
 
-  /* ---------- Payments ---------- */
   const Payments = {
     all: () => getAll(KEYS.payments),
     forCustomer: id => Payments.all().filter(p => p.customerId === id),
@@ -240,7 +231,6 @@ const Store = (() => {
     remove: id => remove(KEYS.payments, id)
   };
 
-  /* ---------- Invoices ---------- */
   const Invoices = {
     all: () => getAll(KEYS.invoices),
     forCustomer: id => Invoices.all().filter(i => i.customerId === id),
@@ -259,7 +249,6 @@ const Store = (() => {
     remove: id => remove(KEYS.invoices, id)
   };
 
-  /* ---------- Settings ---------- */
   function getSettings() { return read(KEYS.settings) || DEFAULT_SETTINGS; }
   function saveSettings(patch) {
     const merged = { ...getSettings(), ...patch };
@@ -267,7 +256,6 @@ const Store = (() => {
     return merged;
   }
 
-  /* ---------- Backup / Restore ---------- */
   function exportBackup() {
     return JSON.stringify({
       version: 2,

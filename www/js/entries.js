@@ -14,7 +14,7 @@ const EntriesView = (() => {
 
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
-        Utils.el('h1', {}, 'Daily Milk Entry'),
+        Utils.el('h1', {}, '🥛 Daily Milk Entry'),
         Utils.el('div', { class: 'sub' }, 'Record morning and evening collection for each customer')
       ]),
       Utils.el('div', { class: 'view-actions' }, [

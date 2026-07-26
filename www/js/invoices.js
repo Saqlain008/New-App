@@ -10,7 +10,7 @@ const InvoicesView = (() => {
     container.innerHTML = '';
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
-        Utils.el('h1', {}, 'Invoices'),
+        Utils.el('h1', {}, '📄 Invoices'),
         Utils.el('div', { class: 'sub' }, 'Generate and manage customer bills')
       ]),
       Utils.el('div', { class: 'view-actions' }, [

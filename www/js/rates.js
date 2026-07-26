@@ -10,7 +10,7 @@ const RatesView = (() => {
 
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
-        Utils.el('h1', {}, 'Milk Rates'),
+        Utils.el('h1', {}, '💰 Milk Rates'),
         Utils.el('div', { class: 'sub' }, 'Current rate: ' + Utils.money(current) + ' per ' + Store.getSettings().unit)
       ]),
       Utils.el('div', { class: 'view-actions' }, [

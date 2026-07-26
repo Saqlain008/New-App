@@ -64,8 +64,9 @@ const Reports = (() => {
     container.innerHTML = '';
     var selectedCustomer = '';
 
+    var icon = kind === 'week' ? '📊' : kind === 'month' ? '📈' : '📅';
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
-      Utils.el('div', {}, [Utils.el('h1', {}, title), Utils.el('div', { class: 'sub' }, 'From recorded entries and payments')]),
+      Utils.el('div', {}, [Utils.el('h1', {}, icon + ' ' + title), Utils.el('div', { class: 'sub' }, 'From recorded entries and payments')]),
       Utils.el('div', { class: 'view-actions', id: 'reportActions' })
     ]));
 

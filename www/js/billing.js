@@ -4,7 +4,6 @@
 
 const Billing = (() => {
 
-  /** Sum of milk quantity + amount for a set of entries */
   function sumEntries(entries) {
     return entries.reduce(function(acc, e) {
       acc.qty += Number(e.total || 0);
@@ -17,17 +16,12 @@ const Billing = (() => {
     return payments.reduce(function(acc, p) { return acc + Number(p.amount || 0); }, 0);
   }
 
-  /**
-   * Outstanding balance for a customer as of a given date (inclusive)
-   * Uses each entry's own rate which is already per-customer
-   */
   function outstandingAsOf(customerId, date) {
     var billed = sumEntries(Store.Entries.upTo(date, customerId)).amount;
     var paid = sumPayments(Store.Payments.upTo(date, customerId));
     return +(billed - paid).toFixed(2);
   }
 
-  /** Lifetime totals (no date bound) */
   function lifetime(customerId) {
     var custEntries = Store.Entries.forCustomer(customerId);
     var billed = sumEntries(custEntries).amount;
@@ -36,10 +30,6 @@ const Billing = (() => {
     return { qty: qtyTotal, billed: billed, paid: paid, balance: +(billed - paid).toFixed(2) };
   }
 
-  /**
-   * Full period statement for a customer between start..end (inclusive)
-   * Each entry uses its own stored rate (per-customer rate captured at entry time)
-   */
   function periodStatement(customerId, start, end) {
     var periodEntries = Store.Entries.inRange(start, end, customerId);
     var periodPayments = Store.Payments.inRange(start, end, customerId);
@@ -61,7 +51,6 @@ const Billing = (() => {
     };
   }
 
-  /** Weekly report rows for a customer across a date range */
   function weeklyReport(customerId, fromDate, toDate) {
     var rows = [];
     var cursor = Utils.weekBounds(fromDate).start;
@@ -111,7 +100,6 @@ const Billing = (() => {
     return rows;
   }
 
-  /** Aggregate (all customers) totals for a date range */
   function aggregateRange(start, end) {
     var entries = Store.Entries.inRange(start, end);
     var payments = Store.Payments.inRange(start, end);

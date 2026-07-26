@@ -12,7 +12,7 @@ const CustomersView = (() => {
 
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
-        Utils.el('h1', {}, 'Customers'),
+        Utils.el('h1', {}, '👥 Customers'),
         Utils.el('div', { class: 'sub' }, customers.length + ' total | ' +
           customers.filter(function(c) { return c.status === 'active'; }).length + ' active | ' +
           customers.filter(function(c) { return c.status === 'inactive'; }).length + ' inactive')
@@ -151,7 +151,6 @@ const CustomersView = (() => {
     ]);
   }
 
-  /* ---------------- Profile page ---------------- */
   function renderProfile(container, customerId) {
     var c = Store.Customers.get(customerId);
     container.innerHTML = '';
@@ -330,7 +329,7 @@ const CustomersView = (() => {
           Utils.el('td', {}, pay.notes || '--'),
           Utils.el('td', {}, Utils.el('div', { class: 'row-actions' }, [
             Utils.el('button', { class: 'btn btn--sm btn--danger', onclick: function() {
-              if (Utils.confirmDialog('Delete this payment?')) { Store.Payments.remove(p.id); App.rerender(); }
+              if (Utils.confirmDialog('Delete this payment?')) { Store.Payments.remove(pay.id); App.rerender(); }
             } }, 'Del')
           ]))
         ]));

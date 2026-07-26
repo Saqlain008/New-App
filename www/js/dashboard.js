@@ -40,16 +40,16 @@ const DashboardView = (() => {
     ]));
 
     container.appendChild(Utils.el('div', { class: 'grid grid-cards' }, [
-      stat('Total Customers', customers.length, 'forest'),
-      stat('Active', activeCustomers.length, 'forest'),
-      stat('Inactive', inactiveCustomers.length, 'muted'),
-      stat("Today's Milk", Utils.qty(todayAgg.qty), 'forest'),
-      stat("Today's Collection", Utils.money(todayAgg.amount), 'gold'),
-      stat('Weekly Collection', Utils.money(weekAgg.amount), 'gold'),
-      stat('Monthly Collection', Utils.money(monthAgg.amount), 'gold'),
-      stat('Avg Milk/Customer', Utils.qty(avgMilk), 'forest'),
-      stat('Pending Payments', pendingCustomers.length, 'danger'),
-      stat('Outstanding', Utils.money(outstandingTotal), 'danger')
+      statCard('Total Customers', customers.length, '👥', 'forest'),
+      statCard('Active', activeCustomers.length, '✓', 'forest'),
+      statCard('Inactive', inactiveCustomers.length, '○', 'muted'),
+      statCard("Today's Milk", Utils.qty(todayAgg.qty), '🥛', 'forest'),
+      statCard("Today's Collection", Utils.money(todayAgg.amount), '💰', 'gold'),
+      statCard('Weekly Collection', Utils.money(weekAgg.amount), '📊', 'gold'),
+      statCard('Monthly Collection', Utils.money(monthAgg.amount), '📈', 'gold'),
+      statCard('Avg Milk/Customer', Utils.qty(avgMilk), '📊', 'forest'),
+      statCard('Pending Payments', pendingCustomers.length, '⏱', 'danger'),
+      statCard('Outstanding Balance', Utils.money(outstandingTotal), '⚠', 'danger')
     ]));
 
     var activityRow = Utils.el('div', { class: 'two-col' });
@@ -120,8 +120,9 @@ const DashboardView = (() => {
     }
   }
 
-  function stat(label, value, accent) {
+  function statCard(label, value, icon, accent) {
     return Utils.el('div', { class: 'card stat-card accent-' + accent }, [
+      Utils.el('div', { class: 'stat-icon' }, icon),
       Utils.el('div', { class: 'stat-label' }, label),
       Utils.el('div', { class: 'stat-value' }, String(value))
     ]);

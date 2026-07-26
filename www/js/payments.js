@@ -10,7 +10,7 @@ const PaymentsView = (() => {
     container.innerHTML = '';
     container.appendChild(Utils.el('div', { class: 'view-head' }, [
       Utils.el('div', {}, [
-        Utils.el('h1', {}, 'Payments'),
+        Utils.el('h1', {}, '💳 Payments'),
         Utils.el('div', { class: 'sub' }, 'Record cash, bank or mobile-wallet payments from customers')
       ]),
       Utils.el('div', { class: 'view-actions' }, [
